@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+
+  mysql:
+
+    image: mysql:8.4
+
+    container_name: notes_mysql
+
+    restart: always
+
+    environment:
+
+      MYSQL_ROOT_PASSWORD: root
+
+      MYSQL_DATABASE: notesdb
+
+    ports:
+
+      - "3306:3306"
+
+    volumes:
+
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - notes-network
+
+  backend:
+
+    build: ./backend
+
+    container_name: notes_backend
+
+    restart: always
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    env_file:
+      - .env
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+    networks:
+      - notes-network
+
+  nginx:
+
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+
+    container_name: notes_nginx
+
+    restart: always
+
+    ports:
+      - "80:80"
+
+    depends_on:
+      - backend
+
+    networks:
+      - notes-network
+
+volumes:
+  mysql_data:
+
+networks:
+  notes-network:
